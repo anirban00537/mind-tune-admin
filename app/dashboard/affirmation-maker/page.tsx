@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,23 +26,56 @@ import {
 } from "@/components/ui/tooltip";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
-import { Pencil, Trash2, Plus } from "lucide-react";
+import { Pencil, Trash2, Plus, Volume2, Upload } from "lucide-react";
+import { AffirmationCard } from "@/components/AffirmationCard";
+
+interface Voice {
+  id: number;
+  name: string;
+  isGenerated: boolean;
+}
 
 interface Affirmation {
   id: number;
   text: string;
   category?: string;
+  isGenerating?: boolean;
+  selectedVoice?: Voice;
 }
 
 export default function AffirmationMaker() {
-  const [affirmations, setAffirmations] = useState<Affirmation[]>([]);
+  const voices: Voice[] = [
+    { id: 1, name: "Emma (Female)", isGenerated: true },
+    { id: 2, name: "James (Male)", isGenerated: true },
+    { id: 3, name: "Sophia (Female)", isGenerated: false },
+    { id: 4, name: "Michael (Male)", isGenerated: false },
+    { id: 5, name: "Isabella (Female)", isGenerated: true },
+    { id: 6, name: "William (Male)", isGenerated: false },
+    { id: 7, name: "Olivia (Female)", isGenerated: true },
+    { id: 8, name: "Alexander (Male)", isGenerated: false },
+    { id: 9, name: "Ava (Female)", isGenerated: true },
+    { id: 10, name: "Daniel (Male)", isGenerated: false },
+  ];
+
+  const [affirmations, setAffirmations] = useState<Affirmation[]>([
+    {
+      id: 1,
+      text: "I am capable of achieving anything I set my mind to",
+      category: "Confidence",
+    },
+    {
+      id: 2,
+      text: "Every day, I am growing stronger and healthier",
+      category: "Health",
+    },
+    {
+      id: 3,
+      text: "I attract abundance and opportunities effortlessly",
+      category: "Success",
+    },
+  ]);
   const [newAffirmation, setNewAffirmation] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("");
-
-  // --- AI Affirmation Maker State ---
-  const [aiPrompt, setAiPrompt] = useState("");
-  const [aiCount, setAiCount] = useState(3);
-  const [aiLoading, setAiLoading] = useState(false);
 
   const categories = [
     "Self-Love",
@@ -54,45 +87,34 @@ export default function AffirmationMaker() {
     "Personal Growth",
   ];
 
-  // Async placeholder for AI generation (replace with real API call)
-  const handleAIGenerate = async () => {
-    if (!aiPrompt.trim() || aiCount < 1) return;
-    setAiLoading(true);
-    try {
-      // Simulate API call delay
-      await new Promise((res) => setTimeout(res, 1200));
-      // Generate dummy affirmations (replace this with real API result)
-      const generated = Array.from({ length: aiCount }, (_, i) => ({
-        id: Date.now() + Math.random() * 1000 + i,
-        text: `${aiPrompt} affirmation #${i + 1}`,
-      }));
-      setAffirmations((prev: Affirmation[]) => [...generated, ...prev]);
-      toast.success(`${generated.length} affirmations generated!`);
-    } catch (err) {
-      toast.error("Failed to generate affirmations.");
-    } finally {
-      setAiLoading(false);
-    }
-  };
-
   const [editId, setEditId] = useState<number | null>(null);
   const [editText, setEditText] = useState("");
   const [openDialog, setOpenDialog] = useState(false);
 
-  const handleAdd = () => {
+  const [selectedVoice, setSelectedVoice] = useState<Voice | null>(null);
+
+  const handleAdd = async () => {
     if (!newAffirmation.trim()) {
       toast.error("Affirmation cannot be empty");
       return;
     }
+    if (!selectedVoice) {
+      toast.error("Please select a voice");
+      return;
+    }
+
     setAffirmations([
       ...affirmations,
       {
         id: Date.now(),
         text: newAffirmation,
         category: selectedCategory,
+
+        selectedVoice,
       },
     ]);
     setNewAffirmation("");
+
     toast.success("Affirmation added!");
   };
 
@@ -115,7 +137,11 @@ export default function AffirmationMaker() {
   };
 
   const handleDelete = (id: number) => {
-    setAffirmations((prev) => prev.filter((a) => a.id !== id));
+    setAffirmations((prev) => {
+      const affirmation = prev.find((a) => a.id === id);
+
+      return prev.filter((a) => a.id !== id);
+    });
     toast.success("Affirmation deleted!");
   };
 
@@ -127,88 +153,6 @@ export default function AffirmationMaker() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Left Column - Forms */}
               <div className="space-y-6">
-                <Card className="border bg-white dark:bg-black shadow-xs">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-xl font-semibold text-black dark:text-white">
-                      AI Affirmation Maker
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex flex-col gap-4">
-                      <div className="w-full">
-                        <Label
-                          htmlFor="category"
-                          className="mb-1 block text-sm font-medium text-muted-foreground"
-                        >
-                          Category
-                        </Label>
-                        <Select
-                          value={selectedCategory}
-                          onValueChange={setSelectedCategory}
-                        >
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Select a category" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {categories.map((category) => (
-                              <SelectItem key={category} value={category}>
-                                {category}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="w-full">
-                        <Label
-                          htmlFor="ai-prompt"
-                          className="mb-1 block text-sm font-medium text-muted-foreground"
-                        >
-                          Prompt for AI
-                        </Label>
-                        <Input
-                          id="ai-prompt"
-                          value={aiPrompt}
-                          onChange={(e) => setAiPrompt(e.target.value)}
-                          placeholder="Describe the theme or style for affirmations..."
-                          className="w-full bg-white dark:bg-black border border-muted-foreground/20 text-black dark:text-white"
-                          maxLength={100}
-                        />
-                      </div>
-                      <div className="w-full">
-                        <Label
-                          htmlFor="ai-count"
-                          className="mb-1 block text-sm font-medium text-muted-foreground"
-                        >
-                          Number of Affirmations
-                        </Label>
-                        <Input
-                          id="ai-count"
-                          type="number"
-                          min={1}
-                          max={10}
-                          value={aiCount}
-                          onChange={(e) => setAiCount(Number(e.target.value))}
-                          className="w-full bg-white dark:bg-black border border-muted-foreground/20 text-black dark:text-white"
-                        />
-                      </div>
-                      <Button
-                        type="button"
-                        className="w-full bg-black hover:bg-neutral-800 text-white flex items-center justify-center gap-2 shadow-none border border-muted-foreground/10"
-                        disabled={aiLoading || !aiPrompt.trim() || aiCount < 1}
-                        onClick={handleAIGenerate}
-                      >
-                        {aiLoading ? (
-                          <span>Generating...</span>
-                        ) : (
-                          <>
-                            <Plus className="w-4 h-4" /> Generate Affirmations
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-
                 <Card className="border bg-white dark:bg-black shadow-xs">
                   <CardHeader>
                     <CardTitle className="text-lg font-semibold">
@@ -238,6 +182,39 @@ export default function AffirmationMaker() {
                           className="w-full bg-white dark:bg-black border border-muted-foreground/20 text-black dark:text-white"
                           maxLength={120}
                         />
+                      </div>
+                      <div className="w-full">
+                        <Label
+                          htmlFor="audio-upload"
+                          className="mb-1 block text-sm font-medium text-muted-foreground"
+                        >
+                          Select Voice
+                        </Label>
+                        <Select
+                          value={selectedVoice?.id.toString()}
+                          onValueChange={(value) => {
+                            const voice = voices.find(
+                              (v) => v.id === parseInt(value)
+                            );
+                            setSelectedVoice(voice || null);
+                          }}
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Select a voice" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {voices.map((voice) => (
+                              <SelectItem
+                                key={voice.id}
+                                value={voice.id.toString()}
+                                disabled={!voice.isGenerated}
+                              >
+                                {voice.name}{" "}
+                                {!voice.isGenerated && "(Coming Soon)"}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
                       <Button
                         type="submit"
@@ -278,54 +255,12 @@ export default function AffirmationMaker() {
                           !selectedCategory || a.category === selectedCategory
                       )
                       .map((affirmation) => (
-                        <Card
+                        <AffirmationCard
                           key={affirmation.id}
-                          className="group relative hover:shadow-md transition-shadow"
-                        >
-                          <CardContent className="p-4">
-                            <p className="text-base text-gray-800 dark:text-gray-200">
-                              {affirmation.text}
-                            </p>
-                            {affirmation.category && (
-                              <span className="inline-block mt-2 text-xs text-gray-500">
-                                {affirmation.category}
-                              </span>
-                            )}
-                            <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    size="icon"
-                                    variant="ghost"
-                                    onClick={() =>
-                                      handleEdit(
-                                        affirmation.id,
-                                        affirmation.text
-                                      )
-                                    }
-                                    className="h-8 w-8"
-                                  >
-                                    <Pencil className="w-4 h-4 text-blue-500" />
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>Edit</TooltipContent>
-                              </Tooltip>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    size="icon"
-                                    variant="ghost"
-                                    onClick={() => handleDelete(affirmation.id)}
-                                    className="h-8 w-8"
-                                  >
-                                    <Trash2 className="w-4 h-4 text-red-500" />
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>Delete</TooltipContent>
-                              </Tooltip>
-                            </div>
-                          </CardContent>
-                        </Card>
+                          affirmation={affirmation}
+                          onEdit={handleEdit}
+                          onDelete={handleDelete}
+                        />
                       ))
                   )}
                 </div>

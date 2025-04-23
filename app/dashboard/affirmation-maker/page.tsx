@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import {
   Dialog,
@@ -74,8 +75,7 @@ export default function AffirmationMaker() {
       category: "Success",
     },
   ]);
-  const [newAffirmation, setNewAffirmation] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState<string>("");
+  const [listSelectedCategory, setListSelectedCategory] = useState<string>("");
 
   const categories = [
     "Self-Love",
@@ -91,31 +91,55 @@ export default function AffirmationMaker() {
   const [editText, setEditText] = useState("");
   const [openDialog, setOpenDialog] = useState(false);
 
-  const [selectedVoice, setSelectedVoice] = useState<Voice | null>(null);
+  const [aiPrompt, setAiPrompt] = useState("");
+  const [aiQuantity, setAiQuantity] = useState<number>(3);
+  const [aiSelectedVoice, setAiSelectedVoice] = useState<Voice | null>(null);
+  const [aiSelectedCategory, setAiSelectedCategory] = useState<string>("");
+  const [isGeneratingAi, setIsGeneratingAi] = useState(false);
 
-  const handleAdd = async () => {
-    if (!newAffirmation.trim()) {
-      toast.error("Affirmation cannot be empty");
+  const handleGenerateAI = async () => {
+    if (!aiPrompt.trim()) {
+      toast.error("Please enter a prompt for the AI.");
       return;
     }
-    if (!selectedVoice) {
-      toast.error("Please select a voice");
+    if (!aiSelectedVoice) {
+      toast.error("Please select a voice for the AI affirmations.");
+      return;
+    }
+    if (!aiSelectedCategory) {
+      toast.error("Please select a category for the AI affirmations.");
+      return;
+    }
+    if (aiQuantity <= 0) {
+      toast.error("Please enter a valid number of affirmations to generate.");
       return;
     }
 
-    setAffirmations([
-      ...affirmations,
-      {
-        id: Date.now(),
-        text: newAffirmation,
-        category: selectedCategory,
+    setIsGeneratingAi(true);
+    toast.info(
+      `Generating ${aiQuantity} affirmations based on your prompt... (Simulated)`
+    );
 
-        selectedVoice,
-      },
-    ]);
-    setNewAffirmation("");
+    await new Promise((resolve) => setTimeout(resolve, 2000));
 
-    toast.success("Affirmation added!");
+    const generatedAffirmations: Affirmation[] = Array.from({
+      length: aiQuantity,
+    }).map((_, i) => ({
+      id: Date.now() + i,
+      text: `AI Generated Affirmation ${i + 1} for prompt: ${aiPrompt.substring(
+        0,
+        20
+      )}...`,
+      category: aiSelectedCategory,
+      selectedVoice: aiSelectedVoice,
+      isGenerating: false,
+    }));
+
+    setAffirmations((prev) => [...prev, ...generatedAffirmations]);
+
+    setIsGeneratingAi(false);
+    setAiPrompt("");
+    toast.success(`${aiQuantity} affirmations generated successfully!`);
   };
 
   const handleEdit = (id: number, text: string) => {
@@ -151,56 +175,80 @@ export default function AffirmationMaker() {
         <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
           <div className="container mx-auto px-4 lg:px-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Left Column - Forms */}
               <div className="space-y-6">
                 <Card className="border bg-white dark:bg-black shadow-xs">
                   <CardHeader>
-                    <CardTitle className="text-lg font-semibold">
-                      Add Manual Affirmation
+                    <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                      AI Affirmation Generator
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
                     <form
-                      onSubmit={(e) => {
+                      onSubmit={(e: React.FormEvent<HTMLFormElement>) => {
                         e.preventDefault();
-                        handleAdd();
+                        handleGenerateAI();
                       }}
                       className="flex flex-col gap-4"
                     >
                       <div className="w-full">
                         <Label
-                          htmlFor="affirmation"
+                          htmlFor="ai-prompt"
                           className="mb-1 block text-sm font-medium text-muted-foreground"
                         >
-                          New Affirmation
+                          Prompt (e.g., "financial abundance",
+                          "self-confidence")
                         </Label>
-                        <Input
-                          id="affirmation"
-                          value={newAffirmation}
-                          onChange={(e) => setNewAffirmation(e.target.value)}
-                          placeholder="Write a new affirmation..."
+                        <Textarea
+                          id="ai-prompt"
+                          value={aiPrompt}
+                          onChange={(e) => setAiPrompt(e.target.value)}
+                          placeholder="Describe the theme for your affirmations..."
                           className="w-full bg-white dark:bg-black border border-muted-foreground/20 text-black dark:text-white"
-                          maxLength={120}
+                          rows={3}
                         />
                       </div>
+
                       <div className="w-full">
                         <Label
-                          htmlFor="audio-upload"
+                          htmlFor="ai-quantity"
+                          className="mb-1 block text-sm font-medium text-muted-foreground"
+                        >
+                          Number of Affirmations
+                        </Label>
+                        <Input
+                          id="ai-quantity"
+                          type="number"
+                          min="1"
+                          max="10"
+                          value={aiQuantity}
+                          onChange={(e) =>
+                            setAiQuantity(parseInt(e.target.value) || 1)
+                          }
+                          className="w-full bg-white dark:bg-black border border-muted-foreground/20 text-black dark:text-white"
+                        />
+                      </div>
+
+                      <div className="w-full">
+                        <Label
+                          htmlFor="ai-voice-select"
                           className="mb-1 block text-sm font-medium text-muted-foreground"
                         >
                           Select Voice
                         </Label>
                         <Select
-                          value={selectedVoice?.id.toString()}
+                          value={aiSelectedVoice?.id.toString()}
                           onValueChange={(value) => {
                             const voice = voices.find(
                               (v) => v.id === parseInt(value)
                             );
-                            setSelectedVoice(voice || null);
+                            setAiSelectedVoice(voice || null);
                           }}
                         >
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Select a voice" />
+                          <SelectTrigger
+                            id="ai-voice-select"
+                            className="w-full"
+                          >
+                            <SelectValue placeholder="Select voice for AI affirmations" />
                           </SelectTrigger>
                           <SelectContent>
                             {voices.map((voice) => (
@@ -216,28 +264,69 @@ export default function AffirmationMaker() {
                           </SelectContent>
                         </Select>
                       </div>
-                      <Button
-                        type="submit"
-                        className="w-full bg-black hover:bg-neutral-800 text-white flex items-center justify-center gap-2 shadow-none border border-muted-foreground/10"
-                      >
-                        <Plus className="w-4 h-4" /> Add Affirmation
-                      </Button>
+
+                      <div className="w-full">
+                        <Label
+                          htmlFor="ai-category-select"
+                          className="mb-1 block text-sm font-medium text-muted-foreground"
+                        >
+                          Select Category
+                        </Label>
+                        <Select
+                          value={aiSelectedCategory}
+                          onValueChange={setAiSelectedCategory}
+                        >
+                          <SelectTrigger
+                            id="ai-category-select"
+                            className="w-full"
+                          >
+                            <SelectValue placeholder="Select category for AI affirmations" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {categories.map((category) => (
+                              <SelectItem key={category} value={category}>
+                                {category}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="w-full pt-2">
+                        <Button
+                          type="submit"
+                          className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white flex items-center justify-center gap-2 shadow-none border-none"
+                          disabled={isGeneratingAi}
+                        >
+                          {isGeneratingAi ? (
+                            <>
+                              <span
+                                className="animate-spin inline-block w-4 h-4 border-[2px] border-current border-t-transparent rounded-full"
+                                role="status"
+                                aria-label="loading"
+                              ></span>
+                              Generating...
+                            </>
+                          ) : (
+                            <>Generate Affirmations</>
+                          )}
+                        </Button>
+                      </div>
                     </form>
                   </CardContent>
                 </Card>
               </div>
 
-              {/* Right Column - Affirmation Cards */}
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <h2 className="text-xl font-semibold">Your Affirmations</h2>
-                  {selectedCategory && (
+                  {listSelectedCategory && (
                     <Button
                       variant="outline"
-                      onClick={() => setSelectedCategory("")}
+                      onClick={() => setListSelectedCategory("")}
                       className="text-sm"
                     >
-                      Clear Filter
+                      Clear Filter: {listSelectedCategory}
                     </Button>
                   )}
                 </div>
@@ -252,7 +341,8 @@ export default function AffirmationMaker() {
                     affirmations
                       .filter(
                         (a) =>
-                          !selectedCategory || a.category === selectedCategory
+                          !listSelectedCategory ||
+                          a.category === listSelectedCategory
                       )
                       .map((affirmation) => (
                         <AffirmationCard
@@ -260,6 +350,7 @@ export default function AffirmationMaker() {
                           affirmation={affirmation}
                           onEdit={handleEdit}
                           onDelete={handleDelete}
+                          selectedVoice={affirmation.selectedVoice}
                         />
                       ))
                   )}

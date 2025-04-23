@@ -3,100 +3,114 @@
 import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Volume2, Pencil, Trash2 } from "lucide-react";
+import { Plus } from "lucide-react";
 import {
-  Tooltip,
-  TooltipTrigger,
-  TooltipContent,
-} from "@/components/ui/tooltip";
-import { toast } from "sonner";
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogTrigger,
+  DialogClose,
+} from "@/components/ui/dialog";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
 
-// Define Voice interface (or import if defined centrally)
-interface Voice {
+interface Affirmation {
   id: number;
-  name: string;
+  text: string;
+  category?: string;
 }
 
 interface AffirmationCardProps {
-  affirmation: {
-    id: number;
-    text: string;
-    category?: string;
-  };
-  selectedVoice?: Voice; // Add selectedVoice prop
-  onEdit: (id: number, text: string) => void;
-  onDelete: (id: number) => void;
+  affirmation: Affirmation;
+  availableCategories: string[];
+  onAdd?: (affirmation: Affirmation, selectedCategory: string | null) => void;
 }
 
 export function AffirmationCard({
   affirmation,
-  selectedVoice, // Destructure selectedVoice
-  onEdit,
-  onDelete,
+  availableCategories,
+  onAdd,
 }: AffirmationCardProps) {
-  return (
-    <Card className="relative transition-all border hover:border-blue-300 dark:hover:border-blue-700 hover:shadow-sm">
-      <div className="absolute top-1.5 right-1.5 flex gap-0.5 z-10">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              size="icon"
-              variant="ghost"
-              className="h-6 w-6"
-              disabled
-              onClick={() => toast.info("Playback coming soon!")}
-            >
-              <Volume2 className="w-3.5 h-3.5 text-green-600" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Play (Coming Soon)</TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              size="icon"
-              variant="ghost"
-              onClick={() => onEdit(affirmation.id, affirmation.text)}
-              className="h-6 w-6"
-            >
-              <Pencil className="w-3.5 h-3.5 text-blue-600" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Edit</TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              size="icon"
-              variant="ghost"
-              onClick={() => onDelete(affirmation.id)}
-              className="h-6 w-6"
-            >
-              <Trash2 className="w-3.5 h-3.5 text-red-600" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Delete</TooltipContent>
-        </Tooltip>
-      </div>
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(
+    affirmation.category || null
+  );
 
-      <CardContent className="p-3 pt-7">
-        <p className="text-sm text-gray-700 dark:text-gray-300 mb-2">
+  const handleAddClick = () => {
+    onAdd?.(affirmation, selectedCategory);
+    setIsModalOpen(false); // Close modal after adding
+  };
+
+  return (
+    <Card className="group relative overflow-hidden transition-all duration-300 border border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 bg-gradient-to-br from-white to-zinc-50 dark:from-zinc-900 dark:to-black hover:shadow-md">
+      <CardContent className="p-3 flex items-center justify-between gap-3">
+        <p className="text-sm leading-snug text-zinc-700 dark:text-zinc-300 font-normal flex-1 mr-2 line-clamp-2">
           {affirmation.text}
         </p>
 
-        <div className="flex flex-wrap gap-1.5 text-xs mt-1">
-          {affirmation.category && (
-            <Badge variant="secondary" className="font-normal">
-              {affirmation.category}
-            </Badge>
-          )}
-          {selectedVoice && (
-            <Badge variant="outline" className="font-normal">
-              {selectedVoice.name}
-            </Badge>
-          )}
-        </div>
+        <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+          <DialogTrigger asChild>
+            <Button
+              size="icon"
+              className="bg-zinc-900 hover:bg-zinc-700 text-white dark:bg-zinc-800 dark:hover:bg-zinc-700 h-7 w-7 flex-shrink-0 rounded-full shadow-sm"
+            >
+              <Plus className="w-4 h-4" />
+              <span className="sr-only">Add Affirmation</span>
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Add Affirmation to Category</DialogTitle>
+            </DialogHeader>
+            <div className="py-4">
+              <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-4 italic">
+                "{affirmation.text}"
+              </p>
+              <Label className="mb-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                Select a Category (Optional)
+              </Label>
+              <RadioGroup
+                value={selectedCategory || ""}
+                onValueChange={(value: string) =>
+                  setSelectedCategory(value || null)
+                }
+                className="space-y-2"
+              >
+                {availableCategories.map((category) => (
+                  <div key={category} className="flex items-center space-x-2">
+                    <RadioGroupItem value={category} id={`cat-${category}`} />
+                    <Label htmlFor={`cat-${category}`} className="font-normal">
+                      {category}
+                    </Label>
+                  </div>
+                ))}
+                {/* Option to select no category */}
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="" id="cat-none" />
+                  <Label
+                    htmlFor="cat-none"
+                    className="font-normal italic text-zinc-500"
+                  >
+                    None
+                  </Label>
+                </div>
+              </RadioGroup>
+            </div>
+            <DialogFooter>
+              <DialogClose asChild>
+                <Button variant="outline">Cancel</Button>
+              </DialogClose>
+              <Button
+                onClick={handleAddClick}
+                className="bg-zinc-900 hover:bg-zinc-800 text-white"
+              >
+                Add Affirmation
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </CardContent>
     </Card>
   );

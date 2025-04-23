@@ -58,6 +58,9 @@ export default function AffirmationMaker() {
     { id: 10, name: "Daniel (Male)", isGenerated: false },
   ];
 
+  // Initialize affirmations state with an empty array
+  const [affirmations, setAffirmations] = useState<Affirmation[]>([]);
+  /*
   const [affirmations, setAffirmations] = useState<Affirmation[]>([
     {
       id: 1,
@@ -75,6 +78,7 @@ export default function AffirmationMaker() {
       category: "Success",
     },
   ]);
+  */
   const [listSelectedCategory, setListSelectedCategory] = useState<string>("");
 
   const categories = [
@@ -106,28 +110,50 @@ export default function AffirmationMaker() {
     }
 
     setIsGeneratingAi(true);
-    toast.info(
-      `Generating ${aiQuantity} affirmations based on your prompt... (Simulated)`
-    );
+    toast.info(`Generating ${aiQuantity} affirmations...`);
 
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    try {
+      const response = await fetch("/api/generate-affirmations", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ prompt: aiPrompt, quantity: aiQuantity }),
+      });
 
-    const generatedAffirmations: Affirmation[] = Array.from({
-      length: aiQuantity,
-    }).map((_, i) => ({
-      id: Date.now() + i,
-      text: `AI Generated Affirmation ${i + 1} for prompt: ${aiPrompt.substring(
-        0,
-        20
-      )}...`,
-      isGenerating: false,
-    }));
+      const data = await response.json();
 
-    setAffirmations((prev) => [...prev, ...generatedAffirmations]);
+      if (!response.ok) {
+        // Handle API errors (e.g., validation, OpenAI refusal, server errors)
+        console.error("API Error:", data);
+        toast.error("Failed to generate affirmations.", {
+          description: data.error || data.details || "Unknown error",
+        });
+      } else {
+        // Success - format and add affirmations to state
+        const newAffirmations: Affirmation[] = data.affirmations.map(
+          (text: string, i: number) => ({
+            id: Date.now() + i, // Simple unique ID generation
+            text: text,
+            // No category or voice assigned initially from AI
+          })
+        );
 
-    setIsGeneratingAi(false);
-    setAiPrompt("");
-    toast.success(`${aiQuantity} affirmations generated successfully!`);
+        setAffirmations((prev) => [...prev, ...newAffirmations]);
+        setAiPrompt(""); // Clear prompt on success
+        toast.success(
+          `${data.affirmations.length} affirmations generated successfully!`
+        );
+      }
+    } catch (error) {
+      // Handle network errors or unexpected issues
+      console.error("Failed to fetch affirmations:", error);
+      toast.error(
+        "An unexpected error occurred while generating affirmations."
+      );
+    } finally {
+      setIsGeneratingAi(false);
+    }
   };
 
   const handleEdit = (id: number, text: string) => {
@@ -237,7 +263,7 @@ export default function AffirmationMaker() {
                           id="ai-quantity"
                           type="number"
                           min="1"
-                          max="10"
+                          max="80"
                           value={aiQuantity}
                           onChange={(e) =>
                             setAiQuantity(parseInt(e.target.value) || 1)
